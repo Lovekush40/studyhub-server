@@ -33,13 +33,7 @@ router.post('/batches', verifyJWT, requireAdmin, batchController.createBatch);
 router.put('/batches/:id', verifyJWT, requireAdmin, batchController.updateBatch);
 router.delete('/batches/:id', verifyJWT, requireAdmin, batchController.deleteBatch);
 
-// Students
-router.get('/students', verifyJWT, studentController.getStudents);
-router.get('/students/:id', verifyJWT, requireAdminOrTeacher, studentController.getStudent);
-router.post('/students', verifyJWT, requireAdminOrTeacher, studentController.createStudent);
-router.put('/students/:id', verifyJWT, requireAdminOrTeacher, studentController.updateStudent);
-router.post('/students/:id/enroll', verifyJWT, requireAdminOrTeacher, studentController.enrollStudent);
-router.delete('/students/:id', verifyJWT, requireAdmin, studentController.deleteStudent);
+
 
 // Tests
 router.get('/tests', verifyJWT, testController.getTests);

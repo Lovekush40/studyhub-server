@@ -41,23 +41,29 @@ const getBatches = asyncHandler(async (req, res) => {
     return sendSuccess(res, batches);
   }
 
-  // STUDENT
+  // STUDENT: fetch batches dynamically mapping from StudentBatch
   const studentQuery = [];
   if (req.user._id) studentQuery.push({ user_id: req.user._id });
   if (req.user.email) studentQuery.push({ email: req.user.email });
+  
   const student = await Student.findOne(studentQuery.length ? { $or: studentQuery } : {}).lean();
   if (!student) return sendSuccess(res, []);
 
-  const batches = [];
-  if (student.batch_id) {
-    const batch = await Batch.findById(student.batch_id).populate('courseId');
-    if (batch) batches.push(batch);
+  // Use the StudentBatch join table properly
+  const studentBatches = await mongoose.model('StudentBatch').find({ student_id: student._id })
+    .populate('batch_id')
+    .lean();
+
+  const mappedBatchIds = studentBatches
+    .filter(sb => sb.batch_id)
+    .map(sb => sb.batch_id._id);
+
+  if (mappedBatchIds.length === 0) {
+    return sendSuccess(res, []);
   }
 
-  if (!batches.length && student.course_id) {
-    const courseBatches = await Batch.find({ courseId: student.course_id }).populate('courseId');
-    batches.push(...courseBatches);
-  }
+  const batches = await Batch.find({ _id: { $in: mappedBatchIds } }).populate('courseId');
+  return sendSuccess(res, batches);
 
   return sendSuccess(res, batches);
 });

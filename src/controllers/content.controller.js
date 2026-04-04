@@ -94,7 +94,7 @@ const getContent = asyncHandler(async (req, res) => {
 });
 
 const createContent = asyncHandler(async (req, res) => {
-  const { title, description, file_url, subject_id, course_id, batch_id } = req.body;
+  const { title, description, file_url, type, subject_id, course_id, batch_id } = req.body;
 
   if (!title || !file_url) {
     throw new ApiError(400, 'Missing required fields: title and file_url');
@@ -126,6 +126,7 @@ const createContent = asyncHandler(async (req, res) => {
     title,
     description: description || '',
     file_url,
+    type: type || 'videos',
     subject_id: subject_id || undefined,
     course_id: course_id || undefined,
     batch_id: batch_id || undefined,
@@ -139,13 +140,14 @@ const createContent = asyncHandler(async (req, res) => {
 });
 
 const updateContent = asyncHandler(async (req, res) => {
-  const { title, description, file_url, subject_id, course_id, batch_id } = req.body;
+  const { title, description, file_url, type, subject_id, course_id, batch_id } = req.body;
 
   const updatePayload = {};
 
   if (title !== undefined) updatePayload.title = title;
   if (description !== undefined) updatePayload.description = description;
   if (file_url !== undefined) updatePayload.file_url = file_url;
+  if (type !== undefined) updatePayload.type = type;
 
   if (course_id !== undefined) {
     if (course_id && !mongoose.Types.ObjectId.isValid(course_id)) {

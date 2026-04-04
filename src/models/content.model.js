@@ -4,6 +4,7 @@ const contentSchema = new mongoose.Schema({
   title: { type: String, required: true },
   description: { type: String },
   file_url: { type: String },
+  type: { type: String, enum: ['videos', 'notes', 'assignments'], default: 'videos' },
   subject_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Subject' },
   course_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Course' },
   batch_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Batch' },

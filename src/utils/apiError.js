@@ -17,5 +17,5 @@ export const handleApiError = (err, req, res, next) => {
   }
 
   console.error(err);
-  return res.status(500).json({ status: 'error', message: 'Internal server error' });
+  return res.status(500).json({ status: 'error', message: err.message, stack: err.stack });
 };
