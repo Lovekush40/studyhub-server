@@ -7,6 +7,7 @@ import authController from '../controllers/auth.controller.js';
 import dashboardController from '../controllers/dashboard.controller.js';
 import contentController from '../controllers/content.controller.js';
 import resultController from '../controllers/result.controller.js';
+import { googleLogin, googleCallback } from '../googleAuth.js';
 import { verifyJWT, requireAdmin, requireAdminOrTeacher } from '../middlewares/auth.js';
 
 const router = express.Router();
@@ -14,10 +15,13 @@ const router = express.Router();
 // Dashboard
 router.get('/dashboard', verifyJWT, dashboardController.getDashboardStats);
 
-// Auth
+// Auth (Google)
+router.get('/auth/google', googleLogin);
+router.get('/auth/google/callback', googleCallback);
+
+// Auth (Local/Management)
 router.post('/auth/register', authController.registerUser);
 router.post('/auth', authController.authenticateUser);
-router.post('/auth/google', authController.googleLogin);
 router.post('/auth/teacher', verifyJWT, requireAdmin, authController.createTeacher);
 
 // Courses

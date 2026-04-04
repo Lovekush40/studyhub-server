@@ -1,8 +1,7 @@
 import express from 'express';
-import helmet from 'helmet';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
-import passport from 'passport';
+import passport from './config/passport.js';
 
 // ============================================
 // CONDITIONAL PASSPORT CONFIG
@@ -30,7 +29,7 @@ export const app = express();
 // ============================================
 // MIDDLEWARE
 // ============================================
-app.use(helmet());
+app.use(passport.initialize());
 app.use(cors({
   origin: function(origin, callback) {
     if (!origin) return callback(null, true);
