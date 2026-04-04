@@ -4,6 +4,7 @@ import Course from '../models/course.model.js';
 import Subject from '../models/subject.model.js';
 import Student from '../models/student.model.js';
 import Batch from '../models/batch.model.js';
+import StudentBatch from '../models/student_batch.model.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { ApiError } from '../utils/apiError.js';
 import { sendSuccess, sendCreated } from '../utils/apiResponse.js';
@@ -39,21 +40,25 @@ const getContents = asyncHandler(async (req, res) => {
       query.subject_id = subject_id;
     }
   } else if (role === 'STUDENT') {
-    // Student sees materials for their allocated course/batch only
+    // STUDENT: fetch materials based on mapping from StudentBatch
     const student = await Student.findOne({ user_id: req.user._id }).lean();
     if (!student) return sendSuccess(res, []);
 
-    const allowedIds = { courses: [], batches: [] };
-    if (student.course_id) allowedIds.courses.push(student.course_id);
-    if (student.batch_id) allowedIds.batches.push(student.batch_id);
+    // Get all batch enrollments for this student
+    const studentBatches = await StudentBatch.find({ student_id: student._id })
+      .populate('batch_id')
+      .lean();
 
-    if (!allowedIds.courses.length && !allowedIds.batches.length) {
+    if (!studentBatches.length) {
       return sendSuccess(res, []);
     }
 
+    const batchIds = studentBatches.map(sb => sb.batch_id?._id).filter(Boolean);
+    const courseIds = [...new Set(studentBatches.map(sb => sb.batch_id?.courseId || sb.batch_id?.course_id).filter(Boolean))];
+
     query.$or = [];
-    if (allowedIds.courses.length) query.$or.push({ course_id: { $in: allowedIds.courses } });
-    if (allowedIds.batches.length) query.$or.push({ batch_id: { $in: allowedIds.batches } });
+    if (courseIds.length) query.$or.push({ course_id: { $in: courseIds } });
+    if (batchIds.length) query.$or.push({ batch_id: { $in: batchIds } });
 
     if (subject_id && mongoose.Types.ObjectId.isValid(subject_id)) {
       query.subject_id = subject_id;
@@ -83,11 +88,24 @@ const getContent = asyncHandler(async (req, res) => {
   // Access control for students
   if (role === 'STUDENT') {
     const student = await Student.findOne({ user_id: req.user._id }).lean();
-    const hasAccess =
-      (student?.course_id && String(student.course_id) === String(content.course_id)) ||
-      (student?.batch_id && String(student.batch_id) === String(content.batch_id));
+    if (!student) throw new ApiError(403, 'Access denied: Profile not found');
 
-    if (!hasAccess) throw new ApiError(403, 'Access denied');
+    // Check mapping for access
+    const hasBatchMapping = content.batch_id && await StudentBatch.findOne({ 
+      student_id: student._id,
+      batch_id: content.batch_id
+    });
+
+    let hasCourseMapping = false;
+    if (!hasBatchMapping && content.course_id) {
+        const studentEnrollments = await StudentBatch.find({ student_id: student._id }).populate('batch_id');
+        hasCourseMapping = studentEnrollments.some(sb => {
+          const courseId = sb.batch_id?.courseId || sb.batch_id?.course_id;
+          return String(courseId) === String(content.course_id);
+        });
+    }
+
+    if (!hasBatchMapping && !hasCourseMapping) throw new ApiError(403, 'Access denied: Not enrolled in this course or batch');
   }
 
   return sendSuccess(res, content);

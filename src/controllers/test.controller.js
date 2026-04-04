@@ -2,6 +2,7 @@ import mongoose from 'mongoose';
 import Test from '../models/test.model.js';
 import Student from '../models/student.model.js';
 import Batch from '../models/batch.model.js';
+import StudentBatch from '../models/student_batch.model.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { ApiError } from '../utils/apiError.js';
 import { sendSuccess, sendCreated } from '../utils/apiResponse.js';
@@ -11,7 +12,23 @@ const getTests = asyncHandler(async (req, res) => {
 
   if (role === 'ADMIN') {
     const tests = await Test.find().populate('courseId batchId', 'name course_name');
-    const transformedAll = tests.map((test) => ({ ...test.toObject(), status: test.date > new Date() ? 'Upcoming' : 'Completed' }));
+    const transformedAll = tests.map((test) => {
+      const now = new Date();
+      const startTime = new Date(test.date);
+      const endTime = new Date(startTime.getTime() + (test.duration * 60000));
+      
+      let status = 'Upcoming';
+      if (now >= startTime && now <= endTime) status = 'Ongoing';
+      else if (now > endTime) status = 'Completed';
+
+      return { 
+        ...test.toObject(), 
+        status,
+        endDate: endTime,
+        is_active: status === 'Ongoing',
+        can_start: status === 'Ongoing'
+      };
+    });
     return sendSuccess(res, transformedAll);
   }
 
@@ -20,17 +37,35 @@ const getTests = asyncHandler(async (req, res) => {
   if (role === 'TEACHER') {
     const teacherBatches = await Batch.find({ teacher_id: req.user._id }).select('_id').lean();
     batchIds = teacherBatches.map((b) => b._id);
-  }
-
-  if (role === 'STUDENT') {
+  } else if (role === 'STUDENT') {
     const student = await Student.findOne({ user_id: req.user._id }).lean();
-    if (student?.batch_id) {
-      batchIds = [student.batch_id];
+    if (student) {
+      const studentBatches = await StudentBatch.find({ student_id: student._id }).lean();
+      batchIds = studentBatches.map(sb => sb.batch_id);
     }
   }
 
-  const tests = await Test.find({ $or: [{ batch_id: { $in: batchIds } }, { batchId: { $in: batchIds } }] }).populate('courseId batchId', 'name course_name');
-  const transformed = tests.map((test) => ({ ...test.toObject(), status: test.date > new Date() ? 'Upcoming' : 'Completed' }));
+  const query = role === 'ADMIN' ? {} : { $or: [{ batch_id: { $in: batchIds } }, { batchId: { $in: batchIds } }] };
+  const tests = await Test.find(query).populate('courseId batchId', 'name course_name');
+  
+  const transformed = tests.map((test) => {
+    const now = new Date();
+    const startTime = new Date(test.date);
+    const endTime = new Date(startTime.getTime() + (test.duration * 60000));
+    
+    let status = 'Upcoming';
+    if (now >= startTime && now <= endTime) status = 'Ongoing';
+    else if (now > endTime) status = 'Completed';
+
+    return { 
+      ...test.toObject(), 
+      status,
+      endDate: endTime,
+      is_active: status === 'Ongoing',
+      can_start: status === 'Ongoing'
+    };
+  });
+
   return sendSuccess(res, transformed);
 });
 
@@ -42,12 +77,31 @@ const getTest = asyncHandler(async (req, res) => {
   // Access control for students
   if (role === 'STUDENT') {
     const student = await Student.findOne({ user_id: req.user._id }).lean();
-    const hasAccess = student?.batch_id && (String(student.batch_id) === String(test.batch_id) || String(student.batch_id) === String(test.batchId));
+    if (!student) throw new ApiError(403, 'Access denied: Profile not found');
 
-    if (!hasAccess) throw new ApiError(403, 'Access denied');
+    const hasAccess = await StudentBatch.findOne({ 
+      student_id: student._id,
+      batch_id: test.batch_id || test.batchId
+    });
+
+    if (!hasAccess) throw new ApiError(403, 'Access denied: Not enrolled in this test\'s batch');
   }
 
-  return sendSuccess(res,{ ...test.toObject(), status: test.date > new Date() ? 'Upcoming' : 'Completed' });
+  const now = new Date();
+  const startTime = new Date(test.date);
+  const endTime = new Date(startTime.getTime() + (test.duration * 60000));
+  
+  let status = 'Upcoming';
+  if (now >= startTime && now <= endTime) status = 'Ongoing';
+  else if (now > endTime) status = 'Completed';
+
+  return sendSuccess(res, { 
+    ...test.toObject(), 
+    status,
+    endDate: endTime,
+    is_active: status === 'Ongoing',
+    can_start: status === 'Ongoing'
+  });
 });
 
 const createTest = asyncHandler(async (req, res) => {

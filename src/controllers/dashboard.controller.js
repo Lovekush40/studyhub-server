@@ -2,6 +2,7 @@ import Student from '../models/student.model.js';
 import Batch from '../models/batch.model.js';
 import Course from '../models/course.model.js';
 import Test from '../models/test.model.js';
+import StudentBatch from '../models/student_batch.model.js';
 
 const getDashboardStats = async (req, res) => {
   const role = req.user?.role || 'STUDENT';
@@ -42,32 +43,36 @@ const getDashboardStats = async (req, res) => {
   }
 
   // STUDENT/TEACHER section
-  let studentRecord = null;
-  if (role === 'STUDENT') {
-    studentRecord = await Student.findOne({ user_id: req.user._id }).populate({ path: 'batch_id', populate: { path: 'courseId', model: 'Course' } }).lean();
-  }
-
   let enrolledBatches = [];
   let enrolledCourses = [];
+  let studentRecord = null;
 
-  if (studentRecord && studentRecord.batch_id) {
-    enrolledBatches = [{
-      id: studentRecord.batch_id._id,
-      name: studentRecord.batch_id.name || studentRecord.batch_id.batch_name,
-      start_date: studentRecord.batch_id.start_date,
-      course: studentRecord.batch_id.courseId ? (studentRecord.batch_id.courseId.name || studentRecord.batch_id.courseId.course_name) : undefined
-    }];
+  if (role === 'STUDENT') {
+    studentRecord = await Student.findOne({ user_id: req.user._id }).lean();
+    if (studentRecord) {
+      const mappings = await StudentBatch.find({ student_id: studentRecord._id })
+        .populate({
+          path: 'batch_id',
+          populate: { path: 'courseId', model: 'Course' }
+        })
+        .lean();
 
-    if (studentRecord.batch_id.courseId) {
-      enrolledCourses = [{
-        id: studentRecord.batch_id.courseId._id,
-        name: studentRecord.batch_id.courseId.name || studentRecord.batch_id.courseId.course_name,
-        description: studentRecord.batch_id.courseId.description
-      }];
+      enrolledBatches = mappings.map(m => ({
+        id: m.batch_id?._id,
+        name: m.batch_id?.name || m.batch_id?.batch_name,
+        start_date: m.batch_id?.start_date,
+        course: m.batch_id?.courseId ? (m.batch_id.courseId.name || m.batch_id.courseId.course_name) : undefined
+      })).filter(b => b.id);
+
+      enrolledCourses = Array.from(new Map(mappings
+        .filter(m => m.batch_id?.courseId)
+        .map(m => [m.batch_id.courseId._id.toString(), {
+          id: m.batch_id.courseId._id,
+          name: m.batch_id.courseId.name || m.batch_id.courseId.course_name,
+          description: m.batch_id.courseId.description
+        }])).values());
     }
-  }
-
-  if (role === 'TEACHER') {
+  } else if (role === 'TEACHER') {
     const teacherBatches = await Batch.find({ teacher_id: req.user._id }).populate('courseId').lean();
     enrolledBatches = teacherBatches.map(b => ({
       id: b._id,

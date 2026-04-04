@@ -1,4 +1,5 @@
 import express from 'express';
+import helmet from 'helmet';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import passport from 'passport';
@@ -29,6 +30,7 @@ export const app = express();
 // ============================================
 // MIDDLEWARE
 // ============================================
+app.use(helmet());
 app.use(cors({
   origin: function(origin, callback) {
     if (!origin) return callback(null, true);
@@ -77,8 +79,6 @@ app.use('/api/v1', apiRoutes);
 // RESOURCE ROUTES
 // ============================================
 app.use('/api/v1/students', studentRoutes);
-app.use('/api/v1/courses', courseRoutes);
-app.use('/api/v1/batches', batchRoutes);
 
 // ============================================
 // ERROR HANDLER (MUST BE LAST)

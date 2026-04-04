@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import Batch from '../models/batch.model.js';
 import Student from '../models/student.model.js';
+import StudentBatch from '../models/student_batch.model.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { ApiError } from '../utils/apiError.js';
 import { sendSuccess, sendCreated } from '../utils/apiResponse.js';
@@ -50,7 +51,7 @@ const getBatches = asyncHandler(async (req, res) => {
   if (!student) return sendSuccess(res, []);
 
   // Use the StudentBatch join table properly
-  const studentBatches = await mongoose.model('StudentBatch').find({ student_id: student._id })
+  const studentBatches = await StudentBatch.find({ student_id: student._id })
     .populate('batch_id')
     .lean();
 

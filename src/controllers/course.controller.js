@@ -2,6 +2,7 @@ import mongoose from 'mongoose';
 import Course from '../models/course.model.js';
 import Batch from '../models/batch.model.js';
 import Student from '../models/student.model.js';
+import StudentBatch from '../models/student_batch.model.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { ApiError } from '../utils/apiError.js';
 import { sendSuccess, sendCreated } from '../utils/apiResponse.js';
@@ -41,7 +42,7 @@ const getCourses = asyncHandler(async (req, res) => {
     return sendSuccess(res, courses);
   }
 
-  // STUDENT: courses via enrolled student record
+  // STUDENT: courses via enrolled student record and batches
   const studentQuery = [];
   if (req.user._id) studentQuery.push({ user_id: req.user._id });
   if (req.user.email) studentQuery.push({ email: req.user.email });
@@ -55,23 +56,27 @@ const getCourses = asyncHandler(async (req, res) => {
     return sendSuccess(res, []);
   }
 
+  // Get all batches for this student from StudentBatch join table
+  const studentBatches = await StudentBatch.find({ student_id: student._id })
+    .populate({
+      path: 'batch_id',
+      select: 'course_id courseId'
+    })
+    .lean();
+  
   const courseIds = new Set();
   
-  // Direct course enrollment
+  // Direct course enrollment if any (legacy or standalone)
   if (student.course_id) {
     courseIds.add(String(student.course_id));
   }
   
-  // Course via batch enrollment
-  if (student.batch_id) {
-    const batch = await Batch.findById(student.batch_id)
-      .select('course_id courseId')
-      .lean();
-    
-    if (batch?.course_id || batch?.courseId) {
-      courseIds.add(String(batch.course_id || batch.courseId));
+  // Courses via batch enrollments in StudentBatch
+  studentBatches.forEach(sb => {
+    if (sb.batch_id && (sb.batch_id.course_id || sb.batch_id.courseId)) {
+      courseIds.add(String(sb.batch_id.course_id || sb.batch_id.courseId));
     }
-  }
+  });
 
   if (!courseIds.size) {
     console.log('⚠️ Student has no course enrollments');

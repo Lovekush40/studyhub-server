@@ -247,46 +247,6 @@ const updateStudent = asyncHandler(async (req, res) => {
     throw new ApiError(404, 'Student not found');
   }
 
-  // ========== HANDLE MULTIPLE BATCH ALLOCATION ==========
-  if (Array.isArray(allocated_batches) && allocated_batches.length > 0) {
-    // Delete existing batch allocations
-    await StudentBatch.deleteMany({ student_id: studentId });
-
-    // Create new batch allocations
-    for (const batchData of allocated_batches) {
-      const batchId = batchData._id || batchData.id;
-
-      if (!mongoose.Types.ObjectId.isValid(batchId)) {
-        throw new ApiError(400, `Invalid batch ID: ${batchId}`);
-      }
-
-      // Verify batch exists
-      const batchExists = await Batch.findById(batchId);
-      if (!batchExists) {
-        throw new ApiError(404, `Batch not found: ${batchId}`);
-      }
-
-      // Create new allocation
-      await StudentBatch.create({
-        student_id: studentId,
-        batch_id: batchId
-      });
-    }
-
-    // Update primary batch to first allocated batch
-    if (allocated_batches.length > 0) {
-      const primaryBatchId = allocated_batches[0]._id || allocated_batches[0].id;
-      const primaryBatch = await Batch.findById(primaryBatchId).select('name');
-
-      await Student.findByIdAndUpdate(studentId, {
-        batch_id: primaryBatchId,
-        batch: primaryBatch?.name || updated.batch
-      });
-    }
-
-    console.log('✅ Allocated', allocated_batches.length, 'batches to student:', studentId);
-  }
-
   // Fetch updated student with new batches
   const finalStudent = await Student.findById(studentId);
 
@@ -313,42 +273,60 @@ const updateStudent = asyncHandler(async (req, res) => {
 // ALLOCATE BATCHES TO STUDENT (Separate Endpoint)
 // ============================================
 const allocateBatchesToStudent = asyncHandler(async (req, res) => {
-  const { student_id, batch_ids } = req.body;
+  const studentId = req.params.id;
+  const { batch_ids } = req.body;
 
-  if (!student_id) {
-    throw new ApiError(400, 'student_id is required');
+  if (!studentId) {
+    throw new ApiError(400, 'Student ID is required');
   }
 
-  if (!Array.isArray(batch_ids) || batch_ids.length === 0) {
-    throw new ApiError(400, 'batch_ids array is required with at least one batch');
+  if (!Array.isArray(batch_ids)) {
+    throw new ApiError(400, 'batch_ids array is required');
   }
 
   // Verify student exists
-  const student = await Student.findById(student_id);
+  const student = await Student.findById(studentId);
   if (!student) {
     throw new ApiError(404, 'Student not found');
   }
 
-  // Verify all batches exist and belong to same course (optional constraint)
+  // Verify all batches exist
   const batches = await Batch.find({ _id: { $in: batch_ids } });
   if (batches.length !== batch_ids.length) {
     throw new ApiError(404, 'One or more batches not found');
   }
 
   // Delete existing allocations
-  await StudentBatch.deleteMany({ student_id });
+  await StudentBatch.deleteMany({ student_id: studentId });
 
   // Create new allocations
   for (const batchId of batch_ids) {
     await StudentBatch.create({
-      student_id,
+      student_id: studentId,
       batch_id: batchId
     });
   }
 
-  console.log('✅ Allocated', batch_ids.length, 'batches to student:', student_id);
+  // Update student's primary fields (for UI consistency in tables)
+  if (batch_ids.length > 0) {
+      const primaryBatchId = batch_ids[0];
+      const primaryBatch = batches.find(b => b._id.toString() === primaryBatchId.toString());
+      
+      await Student.findByIdAndUpdate(studentId, {
+          batch_id: primaryBatchId,
+          batch: primaryBatch?.name || 'Assigned'
+      });
+  } else {
+      // If empty set, mark as unassigned
+      await Student.findByIdAndUpdate(studentId, {
+          batch_id: null,
+          batch: 'Unassigned'
+      });
+  }
 
-  return sendSuccess(res, { student_id, allocated_batches: batch_ids }, 'Batches allocated successfully');
+  console.log('✅ Allocated', batch_ids.length, 'batches to student:', studentId);
+
+  return sendSuccess(res, { student_id: studentId, allocated_count: batch_ids.length }, 'Batches allocated successfully');
 });
 
 // ============================================

@@ -6,6 +6,7 @@ import testController from '../controllers/test.controller.js';
 import authController from '../controllers/auth.controller.js';
 import dashboardController from '../controllers/dashboard.controller.js';
 import contentController from '../controllers/content.controller.js';
+import resultController from '../controllers/result.controller.js';
 import { verifyJWT, requireAdmin, requireAdminOrTeacher } from '../middlewares/auth.js';
 
 const router = express.Router();
@@ -41,6 +42,13 @@ router.get('/tests/:id', verifyJWT, testController.getTest);
 router.post('/tests', verifyJWT, requireAdmin, testController.createTest);
 router.put('/tests/:id', verifyJWT, requireAdmin, testController.updateTest);
 router.delete('/tests/:id', verifyJWT, requireAdmin, testController.deleteTest);
+ 
+// Results
+router.get('/results', verifyJWT, resultController.getResults);
+router.get('/results/:id', verifyJWT, resultController.getResult);
+router.post('/results', verifyJWT, requireAdminOrTeacher, resultController.createResult);
+router.put('/results/:id', verifyJWT, requireAdminOrTeacher, resultController.updateResult);
+router.delete('/results/:id', verifyJWT, requireAdmin, resultController.deleteResult);
 
 // Course Materials/Content
 router.get('/materials', verifyJWT, contentController.getContents);

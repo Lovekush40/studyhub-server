@@ -28,18 +28,8 @@ router.delete('/:id', verifyJWT, studentController.deleteStudent);
 // ============================================
 
 // ALLOCATE multiple batches to a student
-// POST /students/:id/allocate-batches
 // Body: { batch_ids: ['batch1', 'batch2', ...] }
-router.post('/:id/allocate-batches', verifyJWT, async (req, res) => {
-  try {
-    await studentController.allocateBatchesToStudent(
-      { body: { student_id: req.params.id, batch_ids: req.body.batch_ids } },
-      res
-    );
-  } catch (err) {
-    res.status(err.statusCode || 500).json({ error: err.message });
-  }
-});
+router.post('/:id/allocate-batches', verifyJWT, studentController.allocateBatchesToStudent);
 
 // REMOVE single batch from student
 // POST /students/remove-batch
