@@ -9,7 +9,8 @@ const googleCallback = (req, res, next) => {
     { session: false },
     async (err, user, info) => {
       if (err || !user) {
-        return res.redirect(`${FRONTEND_URL}/login?error=authentication_failed`);
+        const error = info?.message || 'authentication_failed';
+        return res.redirect(`${FRONTEND_URL}/login?error=${error}`);
       }
 
       const token = user.generateAccessToken();
