@@ -10,56 +10,6 @@ const sanitizeUser = (user) => {
   return rest;
 };
 
-const registerUser = async (req, res) => {
-  const { name, email, password } = req.body;
-  if (!name || !email || !password) {
-    return res.status(400).json({ error: 'Name, email, and password are required' });
-  }
-
-  const existing = await User.findOne({ email: email.toLowerCase() });
-  if (existing) {
-    return res.status(409).json({ error: 'User already exists' });
-  }
-
-  const hashed = await bcrypt.hash(password, 10);
-  const role = AUTH_ADMIN_EMAILS.includes(email.toLowerCase()) ? 'ADMIN' : 'STUDENT';
-
-  const user = await User.create({
-    name,
-    email: email.toLowerCase(),
-    password: hashed,
-    role
-  });
-
-  // Create Student record in database if role is STUDENT
-  if (role === 'STUDENT') {
-    await Student.create({
-      user_id: user._id,
-      name,
-      email: email.toLowerCase()
-      // batch_id and course_id will be set by admin during enrollment
-    });
-  }
-
-  res.status(201).json(sanitizeUser(user));
-};
-
-const authenticateUser = async (req, res) => {
-  const { email, password } = req.body;
-  if (!email || !password) {
-    return res.status(400).json({ error: 'Email and password are required' });
-  }
-
-  const user = await User.findOne({ email: email.toLowerCase() });
-  if (!user) return res.status(401).json({ error: 'Invalid credentials' });
-
-  const isMatch = await bcrypt.compare(password, user.password);
-  if (!isMatch) return res.status(401).json({ error: 'Invalid credentials' });
-
-  const token = user.generateAccessToken();
-  res.json({ user: sanitizeUser(user), token });
-};
-
 const googleLogin = async (req, res) => {
   const { credential, role = 'STUDENT', requesterRole } = req.body;
 
@@ -149,4 +99,5 @@ const createTeacher = async (req, res) => {
   res.status(201).json(sanitizeUser(teacher));
 };
 
-export default { authenticateUser, registerUser, googleLogin, createTeacher };
+export default { googleLogin, createTeacher };
+

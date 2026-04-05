@@ -20,8 +20,7 @@ router.get('/auth/google', googleLogin);
 router.get('/auth/google/callback', googleCallback);
 
 // Auth (Local/Management)
-router.post('/auth/register', authController.registerUser);
-router.post('/auth', authController.authenticateUser);
+// Local registration and login are disabled in favor of Google OAuth
 router.post('/auth/teacher', verifyJWT, requireAdmin, authController.createTeacher);
 
 // Courses
