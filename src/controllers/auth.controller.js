@@ -1,4 +1,5 @@
 import bcrypt from 'bcrypt';
+import jwt from 'jsonwebtoken';
 import User from '../models/user.model.js';
 import Student from '../models/student.model.js';
 
@@ -99,5 +100,26 @@ const createTeacher = async (req, res) => {
   res.status(201).json(sanitizeUser(teacher));
 };
 
-export default { googleLogin, createTeacher };
+const refreshToken = async (req, res) => {
+  const token = req.cookies?.refreshToken;
+  
+  if (!token) {
+    return res.status(401).json({ error: 'Refresh token not found' });
+  }
 
+  try {
+    const decoded = jwt.verify(token, process.env.REFRESH_TOKEN_SECRET || 'studyhub-refresh-secret');
+    const user = await User.findById(decoded._id);
+    
+    if (!user) {
+      return res.status(401).json({ error: 'User no longer exists' });
+    }
+
+    const newAccessToken = user.generateAccessToken();
+    return res.json({ token: newAccessToken, user: sanitizeUser(user) });
+  } catch (error) {
+    return res.status(403).json({ error: 'Invalid or expired refresh token' });
+  }
+};
+
+export default { googleLogin, createTeacher, refreshToken };

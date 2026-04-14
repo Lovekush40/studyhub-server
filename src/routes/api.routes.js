@@ -18,6 +18,7 @@ router.get('/dashboard', verifyJWT, dashboardController.getDashboardStats);
 // Auth (Google)
 router.get('/auth/google', googleLogin);
 router.get('/auth/google/callback', googleCallback);
+router.get('/auth/refresh', authController.refreshToken);
 
 // Auth (Local/Management)
 // Local registration and login are disabled in favor of Google OAuth
