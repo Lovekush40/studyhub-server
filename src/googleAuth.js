@@ -14,6 +14,17 @@ const googleCallback = (req, res, next) => {
       }
 
       const token = user.generateAccessToken();
+      const refreshToken = user.generateRefreshToken();
+
+      // Set Refresh Token as an httpOnly, Secure cookie
+      const isProduction = process.env.NODE_ENV === 'production';
+      res.cookie('refreshToken', refreshToken, {
+        httpOnly: true,
+        secure: isProduction, // true in production
+        sameSite: isProduction ? 'none' : 'lax', // must be 'none' for cross-domain in production
+        maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+      });
+
       return res.redirect(`${FRONTEND_URL}/login?token=${token}`);
     }
   )(req, res, next);
