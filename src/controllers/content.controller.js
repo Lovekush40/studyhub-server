@@ -76,11 +76,17 @@ const getContents = asyncHandler(async (req, res) => {
            // if we clamp it with an $and later. For now, strict block removed for debug!
        }
        
-       // Construct query specifically for this course or related specific batches
-       query.$or = [
-          { course_id: reqCourseIdStr },
-          { batch_id: { $in: batchIdsStrings } }
-       ];
+       // Force the query to exactly mimic the ADMIN query strategy
+       // This proves if MongoDB `$or` array formatting is breaking the query silently.
+       if (mongoose.Types.ObjectId.isValid(course_id)) {
+           query.course_id = course_id;
+       } else {
+           query.course_id = reqCourseIdStr;
+       }
+       
+       // If we want to include batch materials later, we can add them via an $or if needed.
+       // For now, we strictly fetch the Course's root materials.
+       
     } else {
        // No specific course requested, return all enrolled materials
        query.$or = [];
