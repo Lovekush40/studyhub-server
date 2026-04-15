@@ -48,7 +48,14 @@ const getDashboardStats = async (req, res) => {
   let studentRecord = null;
 
   if (role === 'STUDENT') {
-    studentRecord = await Student.findOne({ user_id: req.user._id }).lean();
+    const studentQuery = [];
+    if (req.user._id) studentQuery.push({ user_id: req.user._id });
+    if (req.user.email) studentQuery.push({ email: req.user.email });
+    
+    studentRecord = await Student.findOne(
+      studentQuery.length ? { $or: studentQuery } : {}
+    ).lean();
+    
     if (studentRecord) {
       const mappings = await StudentBatch.find({ student_id: studentRecord._id })
         .populate({

@@ -41,7 +41,14 @@ const getContents = asyncHandler(async (req, res) => {
     }
   } else if (role === 'STUDENT') {
     // STUDENT: fetch materials based on mapping from StudentBatch
-    const student = await Student.findOne({ user_id: req.user._id }).lean();
+    const studentQuery = [];
+    if (req.user._id) studentQuery.push({ user_id: req.user._id });
+    if (req.user.email) studentQuery.push({ email: req.user.email });
+    
+    const student = await Student.findOne(
+      studentQuery.length ? { $or: studentQuery } : {}
+    ).lean();
+    
     if (!student) return sendSuccess(res, []);
 
     const studentBatches = await StudentBatch.find({ student_id: student._id })
@@ -130,7 +137,14 @@ const getContent = asyncHandler(async (req, res) => {
 
   // Access control for students
   if (role === 'STUDENT') {
-    const student = await Student.findOne({ user_id: req.user._id }).lean();
+    const studentQuery = [];
+    if (req.user._id) studentQuery.push({ user_id: req.user._id });
+    if (req.user.email) studentQuery.push({ email: req.user.email });
+    
+    const student = await Student.findOne(
+      studentQuery.length ? { $or: studentQuery } : {}
+    ).lean();
+    
     if (!student) throw new ApiError(403, 'Access denied: Profile not found');
 
     // Check mapping for access
