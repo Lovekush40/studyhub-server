@@ -44,22 +44,25 @@ const getContents = asyncHandler(async (req, res) => {
     const student = await Student.findOne({ user_id: req.user._id }).lean();
     if (!student) return sendSuccess(res, []);
 
-    // Get all batch enrollments for this student
     const studentBatches = await StudentBatch.find({ student_id: student._id })
       .populate('batch_id')
       .lean();
 
-    if (!studentBatches.length) {
-      return sendSuccess(res, []);
-    }
-
     const batchIdsStrings = studentBatches.map(sb => sb.batch_id?._id?.toString()).filter(Boolean);
-    const courseIdsStrings = [...new Set(studentBatches.map(sb => {
+    
+    // Extract course IDs from batches AND direct student mapping
+    const extractedCourseIds = studentBatches.map(sb => {
         const id1 = sb.batch_id?.courseId;
         const id2 = sb.batch_id?.course_id;
         const id3 = sb.batch_id?.course;
         return (id1 || id2 || id3)?.toString();
-    }).filter(Boolean))];
+    }).filter(Boolean);
+    
+    if (student.course_id) {
+        extractedCourseIds.push(student.course_id.toString());
+    }
+    
+    const courseIdsStrings = [...new Set(extractedCourseIds)];
 
     if (course_id) {
        // Check if the student explicitly belongs to the course OR batch
