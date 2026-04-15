@@ -53,12 +53,36 @@ const getContents = asyncHandler(async (req, res) => {
       return sendSuccess(res, []);
     }
 
-    const batchIds = studentBatches.map(sb => sb.batch_id?._id).filter(Boolean);
-    const courseIds = [...new Set(studentBatches.map(sb => sb.batch_id?.courseId || sb.batch_id?.course_id).filter(Boolean))];
+    const batchIdsStrings = studentBatches.map(sb => sb.batch_id?._id?.toString()).filter(Boolean);
+    const courseIdsStrings = [...new Set(studentBatches.map(sb => (sb.batch_id?.courseId || sb.batch_id?.course_id)?.toString()).filter(Boolean))];
 
-    query.$or = [];
-    if (courseIds.length) query.$or.push({ course_id: { $in: courseIds } });
-    if (batchIds.length) query.$or.push({ batch_id: { $in: batchIds } });
+    if (course_id) {
+       // Validate that student is enrolled in the requested course
+       const reqCourseIdStr = String(course_id);
+       if (!courseIdsStrings.includes(reqCourseIdStr)) {
+          return sendSuccess(res, []); // Student not enrolled in this course, return empty
+       }
+       
+       // Construct query specifically for this course or related specific batches
+       query.$or = [
+          { course_id: course_id },
+          { batch_id: { $in: batchIdsStrings } }
+       ];
+    } else {
+       // No specific course requested, return all enrolled materials
+       query.$or = [];
+       if (courseIdsStrings.length > 0) {
+           query.$or.push({ course_id: { $in: courseIdsStrings } });
+       }
+       if (batchIdsStrings.length > 0) {
+           query.$or.push({ batch_id: { $in: batchIdsStrings } });
+       }
+       
+       // If no valid courses or batches to query, return empty
+       if (query.$or.length === 0) {
+           return sendSuccess(res, []);
+       }
+    }
 
     if (subject_id && mongoose.Types.ObjectId.isValid(subject_id)) {
       query.subject_id = subject_id;
