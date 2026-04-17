@@ -42,14 +42,14 @@ const getCourses = asyncHandler(async (req, res) => {
     return sendSuccess(res, courses);
   }
 
-  // STUDENT: courses via enrolled student record and batches
+  // STUDENT: courses via enrolled student record, batches, AND self-enrollment
   const studentQuery = [];
   if (req.user._id) studentQuery.push({ user_id: req.user._id });
   if (req.user.email) studentQuery.push({ email: req.user.email });
   
   const student = await Student.findOne(
     studentQuery.length ? { $or: studentQuery } : {}
-  ).lean();
+  ).populate('enrolled_courses').lean();
   
   if (!student) {
     console.log('⚠️ No student record found');
@@ -77,6 +77,15 @@ const getCourses = asyncHandler(async (req, res) => {
       courseIds.add(String(sb.batch_id.course_id || sb.batch_id.courseId));
     }
   });
+
+  // Courses via self-enrollment (enrolled_courses array)
+  if (student.enrolled_courses && Array.isArray(student.enrolled_courses)) {
+    student.enrolled_courses.forEach(course => {
+      if (course && course._id) {
+        courseIds.add(String(course._id));
+      }
+    });
+  }
 
   if (!courseIds.size) {
     console.log('⚠️ Student has no course enrollments');
