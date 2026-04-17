@@ -276,10 +276,122 @@ const deleteCourse = asyncHandler(async (req, res) => {
   return sendSuccess(res, { success: true, deletedId: courseId }, 'Course deleted successfully');
 });
 
+// ============================================
+// STUDENT ENROLLMENT ENDPOINTS
+// ============================================
+
+// Get all available courses for students to browse
+const getAvailableCourses = asyncHandler(async (req, res) => {
+  const courses = await Course.find().sort({ createdAt: -1 });
+  return sendSuccess(res, courses);
+});
+
+// Enroll student in a course
+const enrollCourse = asyncHandler(async (req, res) => {
+  const courseId = req.params.courseId;
+  const role = req.user?.role || 'STUDENT';
+
+  // Only students can enroll
+  if (role !== 'STUDENT') {
+    throw new ApiError(403, 'Only students can enroll in courses');
+  }
+
+  // Verify course exists
+  const course = await Course.findById(courseId);
+  if (!course) {
+    throw new ApiError(404, 'Course not found');
+  }
+
+  // Find or get student by user_id or email
+  let student = await Student.findOne({
+    $or: [
+      { user_id: req.user._id },
+      { email: req.user.email }
+    ]
+  });
+
+  // If no student record, create one
+  if (!student) {
+    student = await Student.create({
+      user_id: req.user._id,
+      name: req.user.name || req.user.email,
+      email: req.user.email,
+      enrolled_courses: [courseId]
+    });
+    console.log('✅ New student created and enrolled:', student._id, courseId);
+    return sendCreated(res, student, 'Successfully enrolled in course');
+  }
+
+  // Check if already enrolled
+  if (student.enrolled_courses.includes(courseId)) {
+    throw new ApiError(400, 'Already enrolled in this course');
+  }
+
+  // Add course to enrolled_courses
+  student.enrolled_courses.push(courseId);
+  await student.save();
+
+  console.log('✅ Student enrolled in course:', student._id, courseId);
+  return sendSuccess(res, student, 'Successfully enrolled in course');
+});
+
+// Unenroll student from a course
+const unenrollCourse = asyncHandler(async (req, res) => {
+  const courseId = req.params.courseId;
+  const role = req.user?.role || 'STUDENT';
+
+  if (role !== 'STUDENT') {
+    throw new ApiError(403, 'Only students can unenroll from courses');
+  }
+
+  const student = await Student.findOne({
+    $or: [
+      { user_id: req.user._id },
+      { email: req.user.email }
+    ]
+  });
+
+  if (!student) {
+    throw new ApiError(404, 'Student record not found');
+  }
+
+  if (!student.enrolled_courses.includes(courseId)) {
+    throw new ApiError(400, 'Not enrolled in this course');
+  }
+
+  student.enrolled_courses = student.enrolled_courses.filter(
+    id => id.toString() !== courseId
+  );
+  await student.save();
+
+  console.log('✅ Student unenrolled from course:', student._id, courseId);
+  return sendSuccess(res, student, 'Successfully unenrolled from course');
+});
+
+// Get courses the student is enrolled in
+const getStudentEnrolledCourses = asyncHandler(async (req, res) => {
+  const student = await Student.findOne({
+    $or: [
+      { user_id: req.user._id },
+      { email: req.user.email }
+    ]
+  }).populate('enrolled_courses');
+
+  if (!student) {
+    return sendSuccess(res, []);
+  }
+
+  return sendSuccess(res, student.enrolled_courses || []);
+});
+
 export default { 
-  getCourses, 
+  getCourses,
+  getAvailableCourses,
   getCourse, 
   createCourse, 
   updateCourse, 
-  deleteCourse 
+  deleteCourse,
+  enrollCourse,
+  unenrollCourse,
+  getStudentEnrolledCourses
 };

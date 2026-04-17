@@ -26,10 +26,16 @@ router.post('/auth/teacher', verifyJWT, requireAdmin, authController.createTeach
 
 // Courses
 router.get('/courses', verifyJWT, courseController.getCourses);
+router.get('/courses/available', verifyJWT, courseController.getAvailableCourses);
 router.get('/courses/:id', verifyJWT, courseController.getCourse);
 router.post('/courses', verifyJWT, requireAdmin, courseController.createCourse);
 router.put('/courses/:id', verifyJWT, requireAdmin, courseController.updateCourse);
 router.delete('/courses/:id', verifyJWT, requireAdmin, courseController.deleteCourse);
+
+// Course Enrollment (for students)
+router.post('/courses/:courseId/enroll', verifyJWT, courseController.enrollCourse);
+router.post('/courses/:courseId/unenroll', verifyJWT, courseController.unenrollCourse);
+router.get('/student/enrolled-courses', verifyJWT, courseController.getStudentEnrolledCourses);
 
 // Batches
 router.get('/batches', verifyJWT, batchController.getBatches);

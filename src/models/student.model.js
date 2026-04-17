@@ -13,7 +13,11 @@ const studentSchema = new mongoose.Schema({
   attendance: { type: Number, min: 0, max: 100, default: 100 },
   lastTest: { type: Number, min: 0, max: 100, default: 0 },
   status: { type: String, enum: ['Active', 'Warning', 'Critical'], default: 'Active' },
-  enrollmentDate: { type: String, default: () => new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) }
+  enrollmentDate: { type: String, default: () => new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) },
+  enrolled_courses: [{ 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: 'Course'
+  }]
 }, { timestamps: true });
 
 studentSchema.virtual('id').get(function () {
