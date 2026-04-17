@@ -169,7 +169,7 @@ const getContent = asyncHandler(async (req, res) => {
 });
 
 const createContent = asyncHandler(async (req, res) => {
-  const { title, description, file_url, type, subject_id, course_id, batch_id } = req.body;
+  const { title, description, file_url, type, subject_id, subject_name, course_id, batch_id } = req.body;
 
   if (!title || !file_url) {
     throw new ApiError(400, 'Missing required fields: title and file_url');
@@ -203,6 +203,7 @@ const createContent = asyncHandler(async (req, res) => {
     file_url,
     type: type || 'videos',
     subject_id: subject_id || undefined,
+    subject_name: subject_name || undefined,
     course_id: course_id || undefined,
     batch_id: batch_id || undefined,
     uploaded_by: req.user._id
@@ -211,11 +212,12 @@ const createContent = asyncHandler(async (req, res) => {
   const newContent = await Content.create(contentData);
   await newContent.populate('subject_id course_id batch_id uploaded_by');
 
+  console.log('✅ Content created with subject:', subject_name || subject_id);
   return sendCreated(res, newContent);
 });
 
 const updateContent = asyncHandler(async (req, res) => {
-  const { title, description, file_url, type, subject_id, course_id, batch_id } = req.body;
+  const { title, description, file_url, type, subject_id, subject_name, course_id, batch_id } = req.body;
 
   const updatePayload = {};
 
@@ -244,6 +246,10 @@ const updateContent = asyncHandler(async (req, res) => {
       if (!subjectExists) throw new ApiError(404, 'Subject not found');
     }
     updatePayload.subject_id = subject_id || null;
+  }
+
+  if (subject_name !== undefined) {
+    updatePayload.subject_name = subject_name || null;
   }
 
   if (batch_id !== undefined) {
