@@ -1,6 +1,6 @@
 import Review from '../models/review.model.js';
 import { ApiError } from '../utils/apiError.js';
-import { ApiResponse } from '../utils/apiResponse.js';
+import { sendSuccess, sendCreated } from '../utils/apiResponse.js';
 
 export const getApprovedReviews = async (req, res, next) => {
   try {
@@ -8,7 +8,7 @@ export const getApprovedReviews = async (req, res, next) => {
       .sort({ createdAt: -1 })
       .populate('student', 'name');
 
-    res.status(200).json(new ApiResponse(200, reviews, 'Approved reviews fetched successfully'));
+    sendSuccess(res, reviews, 'Approved reviews fetched successfully');
   } catch (error) {
     next(error);
   }
@@ -20,7 +20,7 @@ export const getAllReviews = async (req, res, next) => {
       .sort({ createdAt: -1 })
       .populate('student', 'name');
 
-    res.status(200).json(new ApiResponse(200, reviews, 'All reviews fetched successfully'));
+    sendSuccess(res, reviews, 'All reviews fetched successfully');
   } catch (error) {
     next(error);
   }
@@ -37,7 +37,7 @@ export const createReview = async (req, res, next) => {
       status: 'pending', // default is pending
     });
 
-    res.status(201).json(new ApiResponse(201, review, 'Review submitted successfully and is pending approval'));
+    sendCreated(res, review, 'Review submitted successfully and is pending approval');
   } catch (error) {
     next(error);
   }
@@ -62,7 +62,7 @@ export const updateReviewStatus = async (req, res, next) => {
       throw new ApiError(404, 'Review not found');
     }
 
-    res.status(200).json(new ApiResponse(200, review, 'Review status updated successfully'));
+    sendSuccess(res, review, 'Review status updated successfully');
   } catch (error) {
     next(error);
   }

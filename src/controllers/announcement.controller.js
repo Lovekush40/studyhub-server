@@ -1,6 +1,6 @@
 import Announcement from '../models/announcement.model.js';
 import { ApiError } from '../utils/apiError.js';
-import { ApiResponse } from '../utils/apiResponse.js';
+import { sendSuccess, sendCreated } from '../utils/apiResponse.js';
 
 export const getAnnouncements = async (req, res, next) => {
   try {
@@ -8,7 +8,7 @@ export const getAnnouncements = async (req, res, next) => {
       .sort({ createdAt: -1 })
       .populate('createdBy', 'name');
 
-    res.status(200).json(new ApiResponse(200, announcements, 'Announcements fetched successfully'));
+    sendSuccess(res, announcements, 'Announcements fetched successfully');
   } catch (error) {
     next(error);
   }
@@ -26,7 +26,7 @@ export const createAnnouncement = async (req, res, next) => {
       createdBy: req.user._id,
     });
 
-    res.status(201).json(new ApiResponse(201, announcement, 'Announcement created successfully'));
+    sendCreated(res, announcement, 'Announcement created successfully');
   } catch (error) {
     next(error);
   }
@@ -47,7 +47,7 @@ export const updateAnnouncement = async (req, res, next) => {
       throw new ApiError(404, 'Announcement not found');
     }
 
-    res.status(200).json(new ApiResponse(200, announcement, 'Announcement updated successfully'));
+    sendSuccess(res, announcement, 'Announcement updated successfully');
   } catch (error) {
     next(error);
   }
@@ -63,7 +63,7 @@ export const deleteAnnouncement = async (req, res, next) => {
       throw new ApiError(404, 'Announcement not found');
     }
 
-    res.status(200).json(new ApiResponse(200, {}, 'Announcement deleted successfully'));
+    sendSuccess(res, {}, 'Announcement deleted successfully');
   } catch (error) {
     next(error);
   }
