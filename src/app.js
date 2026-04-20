@@ -18,6 +18,8 @@ import googleAuthRoutes from './routes/googleAuth.route.js';
 import studentRoutes from './routes/student.routes.js';
 import courseRoutes from './routes/course.routes.js';
 import batchRoutes from './routes/batch.routes.js';
+import announcementRoutes from './routes/announcement.routes.js';
+import reviewRoutes from './routes/review.routes.js';
 
 // ============================================
 // IMPORT ERROR HANDLER
@@ -78,6 +80,8 @@ app.use('/api/v1', apiRoutes);
 // RESOURCE ROUTES
 // ============================================
 app.use('/api/v1/students', studentRoutes);
+app.use('/api/v1/announcements', announcementRoutes);
+app.use('/api/v1/reviews', reviewRoutes);
 
 // ============================================
 // ERROR HANDLER (MUST BE LAST)
