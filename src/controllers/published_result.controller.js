@@ -1,5 +1,7 @@
 import PublishedResult from '../models/published_result.model.js';
-import { asyncHandler, ApiError, sendSuccess, sendCreated } from '../utils/index.js';
+import { asyncHandler } from '../utils/asyncHandler.js';
+import { ApiError } from '../utils/apiError.js';
+import { sendSuccess, sendCreated } from '../utils/apiResponse.js';
 
 const getPublishedResults = asyncHandler(async (req, res) => {
   const query = {};
