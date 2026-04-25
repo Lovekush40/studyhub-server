@@ -7,6 +7,7 @@ import authController from '../controllers/auth.controller.js';
 import dashboardController from '../controllers/dashboard.controller.js';
 import contentController from '../controllers/content.controller.js';
 import resultController from '../controllers/result.controller.js';
+import publishedResultRoutes from './published_result.routes.js';
 import { googleLogin, googleCallback } from '../googleAuth.js';
 import { verifyJWT, requireAdmin, requireAdminOrTeacher } from '../middlewares/auth.js';
 
@@ -59,6 +60,9 @@ router.get('/results/:id', verifyJWT, resultController.getResult);
 router.post('/results', verifyJWT, requireAdminOrTeacher, resultController.createResult);
 router.put('/results/:id', verifyJWT, requireAdminOrTeacher, resultController.updateResult);
 router.delete('/results/:id', verifyJWT, requireAdmin, resultController.deleteResult);
+
+// Published Results
+router.use('/published-results', publishedResultRoutes);
 
 // Course Materials/Content
 router.get('/materials', verifyJWT, contentController.getContents);
