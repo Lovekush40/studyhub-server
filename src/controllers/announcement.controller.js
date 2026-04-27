@@ -16,12 +16,14 @@ export const getAnnouncements = async (req, res, next) => {
 
 export const createAnnouncement = async (req, res, next) => {
   try {
-    const { title, content, priority, active } = req.body;
+    const { title, content, priority, active, link, category } = req.body;
 
     const announcement = await Announcement.create({
       title,
       content,
       priority,
+      link,
+      category: category || 'General',
       active: active !== undefined ? active : true,
       createdBy: req.user._id,
     });
@@ -35,11 +37,11 @@ export const createAnnouncement = async (req, res, next) => {
 export const updateAnnouncement = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { title, content, priority, active } = req.body;
+    const { title, content, priority, active, link, category } = req.body;
 
     const announcement = await Announcement.findByIdAndUpdate(
       id,
-      { title, content, priority, active },
+      { title, content, priority, active, link, category },
       { new: true, runValidators: true }
     );
 

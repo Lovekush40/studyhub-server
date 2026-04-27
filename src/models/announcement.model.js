@@ -15,6 +15,15 @@ const announcementSchema = new mongoose.Schema({
     enum: ['low', 'medium', 'high'],
     default: 'medium',
   },
+  link: {
+    type: String,
+    trim: true,
+  },
+  category: {
+    type: String,
+    enum: ['Examination', 'Events', 'General'],
+    default: 'General',
+  },
   active: {
     type: Boolean,
     default: true,
