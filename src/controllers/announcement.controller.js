@@ -5,7 +5,7 @@ import { sendSuccess, sendCreated } from '../utils/apiResponse.js';
 export const getAnnouncements = async (req, res, next) => {
   try {
     const announcements = await Announcement.find({ active: true })
-      .sort({ createdAt: -1 })
+      .sort({ eventDate: -1, createdAt: -1 })
       .populate('createdBy', 'name');
 
     sendSuccess(res, announcements, 'Announcements fetched successfully');
@@ -16,7 +16,7 @@ export const getAnnouncements = async (req, res, next) => {
 
 export const createAnnouncement = async (req, res, next) => {
   try {
-    const { title, content, priority, active, link, category } = req.body;
+    const { title, content, priority, active, link, category, eventDate } = req.body;
 
     const announcement = await Announcement.create({
       title,
@@ -24,6 +24,7 @@ export const createAnnouncement = async (req, res, next) => {
       priority,
       link,
       category: category || 'General',
+      eventDate,
       active: active !== undefined ? active : true,
       createdBy: req.user._id,
     });
@@ -37,11 +38,11 @@ export const createAnnouncement = async (req, res, next) => {
 export const updateAnnouncement = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { title, content, priority, active, link, category } = req.body;
+    const { title, content, priority, active, link, category, eventDate } = req.body;
 
     const announcement = await Announcement.findByIdAndUpdate(
       id,
-      { title, content, priority, active, link, category },
+      { title, content, priority, active, link, category, eventDate },
       { new: true, runValidators: true }
     );
 

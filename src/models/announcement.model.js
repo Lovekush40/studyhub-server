@@ -24,6 +24,9 @@ const announcementSchema = new mongoose.Schema({
     enum: ['Examination', 'Events', 'General'],
     default: 'General',
   },
+  eventDate: {
+    type: Date,
+  },
   active: {
     type: Boolean,
     default: true,
