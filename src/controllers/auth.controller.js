@@ -116,9 +116,20 @@ const refreshToken = async (req, res) => {
     }
 
     const newAccessToken = user.generateAccessToken();
-    return res.json({ token: newAccessToken, user: sanitizeUser(user) });
+    const student = await Student.findOne({ user_id: user._id });
+    return res.json({ token: newAccessToken, user: sanitizeUser(user), student: student ? sanitizeUser(student) : null });
   } catch (error) {
     return res.status(403).json({ error: 'Invalid or expired refresh token' });
+  }
+};
+
+const getProfile = async (req, res) => {
+  try {
+    const student = await Student.findOne({ user_id: req.user._id });
+    return res.json({ user: sanitizeUser(req.user), student: student ? sanitizeUser(student) : null });
+  } catch (error) {
+    console.error('Get profile error', error);
+    return res.status(500).json({ error: 'Could not retrieve profile' });
   }
 };
 
