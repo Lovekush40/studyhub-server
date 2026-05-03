@@ -125,7 +125,16 @@ const refreshToken = async (req, res) => {
 
 const getProfile = async (req, res) => {
   try {
-    const student = await Student.findOne({ user_id: req.user._id });
+    let student = await Student.findOne({ user_id: req.user._id });
+
+    if (!student && req.user.role === 'STUDENT') {
+      student = await Student.create({
+        user_id: req.user._id,
+        name: req.user.name,
+        email: req.user.email
+      });
+    }
+
     return res.json({ user: sanitizeUser(req.user), student: student ? sanitizeUser(student) : null });
   } catch (error) {
     console.error('Get profile error', error);
@@ -143,20 +152,27 @@ const updateProfile = async (req, res) => {
       await User.findByIdAndUpdate(userId, { name });
     }
 
-    // Update Student model (contact, address, dob)
-    const student = await Student.findOne({ user_id: userId });
+    // Update or create Student model (contact, address, dob)
+    const updateData = {};
+    if (contact !== undefined) updateData.contact = contact;
+    if (address !== undefined) updateData.address = address;
+    if (dob !== undefined) updateData.dob = dob;
+
+    let student = await Student.findOne({ user_id: userId });
     if (student) {
-      const updateData = {};
-      if (contact !== undefined) updateData.contact = contact;
-      if (address !== undefined) updateData.address = address;
-      if (dob !== undefined) updateData.dob = dob;
-      
-      await Student.findByIdAndUpdate(student._id, updateData);
+      await Student.findByIdAndUpdate(student._id, updateData, { new: true });
+    } else if (Object.keys(updateData).length > 0) {
+      student = await Student.create({
+        user_id: userId,
+        name: req.user.name,
+        email: req.user.email,
+        ...updateData
+      });
     }
 
     // Get updated user data
     const updatedUser = await User.findById(userId);
-    const updatedStudent = await Student.findOne({ user_id: userId });
+    const updatedStudent = student ? await Student.findOne({ user_id: userId }) : null;
 
     return res.json({ 
       user: sanitizeUser(updatedUser), 
