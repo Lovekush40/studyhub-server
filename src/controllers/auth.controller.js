@@ -168,4 +168,4 @@ const updateProfile = async (req, res) => {
   }
 };
 
-export default { googleLogin, createTeacher, refreshToken, updateProfile };
+export default { googleLogin, createTeacher, refreshToken, getProfile, updateProfile };
