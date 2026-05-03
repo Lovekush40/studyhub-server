@@ -24,6 +24,7 @@ router.get('/auth/refresh', authController.refreshToken);
 // Auth (Local/Management)
 // Local registration and login are disabled in favor of Google OAuth
 router.post('/auth/teacher', verifyJWT, requireAdmin, authController.createTeacher);
+router.put('/auth/profile', verifyJWT, authController.updateProfile);
 
 // Courses
 router.get('/courses', verifyJWT, courseController.getCourses);

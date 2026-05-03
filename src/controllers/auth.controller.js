@@ -122,4 +122,39 @@ const refreshToken = async (req, res) => {
   }
 };
 
-export default { googleLogin, createTeacher, refreshToken };
+const updateProfile = async (req, res) => {
+  const { name, contact, address, dob } = req.body;
+  const userId = req.user._id;
+
+  try {
+    // Update User model (name)
+    if (name) {
+      await User.findByIdAndUpdate(userId, { name });
+    }
+
+    // Update Student model (contact, address, dob)
+    const student = await Student.findOne({ user_id: userId });
+    if (student) {
+      const updateData = {};
+      if (contact !== undefined) updateData.contact = contact;
+      if (address !== undefined) updateData.address = address;
+      if (dob !== undefined) updateData.dob = dob;
+      
+      await Student.findByIdAndUpdate(student._id, updateData);
+    }
+
+    // Get updated user data
+    const updatedUser = await User.findById(userId);
+    const updatedStudent = await Student.findOne({ user_id: userId });
+
+    return res.json({ 
+      user: sanitizeUser(updatedUser), 
+      student: updatedStudent ? sanitizeUser(updatedStudent) : null 
+    });
+  } catch (error) {
+    console.error('Profile update error', error);
+    return res.status(500).json({ error: 'Profile update failed' });
+  }
+};
+
+export default { googleLogin, createTeacher, refreshToken, updateProfile };
