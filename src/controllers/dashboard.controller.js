@@ -3,6 +3,8 @@ import Batch from '../models/batch.model.js';
 import Course from '../models/course.model.js';
 import Test from '../models/test.model.js';
 import StudentBatch from '../models/student_batch.model.js';
+import Result from '../models/result.model.js';
+import User from '../models/user.model.js';
 
 const getDashboardStats = async (req, res) => {
   const role = req.user?.role || 'STUDENT';
@@ -15,12 +17,20 @@ const getDashboardStats = async (req, res) => {
       Test.countDocuments()
     ]);
 
-    const chartData = [
-      { name: 'Week 1', students: Math.ceil(totalStudents * 0.2) },
-      { name: 'Week 2', students: Math.ceil(totalStudents * 0.4) },
-      { name: 'Week 3', students: Math.ceil(totalStudents * 0.6) },
-      { name: 'Week 4', students: totalStudents }
-    ];
+    const chartData = [];
+    for (let i = 3; i >= 0; i--) {
+      const d = new Date();
+      d.setMonth(d.getMonth() - i);
+      const monthName = d.toLocaleString('default', { month: 'short' });
+      const endOfMonth = new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59);
+      
+      const count = await User.countDocuments({
+        role: 'STUDENT',
+        created_at: { $lte: endOfMonth }
+      });
+      
+      chartData.push({ name: monthName, students: count || 0 });
+    }
 
     const upcomingEvents = await Batch.find({ start_date: { $gte: new Date() } })
       .sort({ start_date: 1 })
@@ -104,6 +114,30 @@ const getDashboardStats = async (req, res) => {
     $or: testQueryOr
   });
 
+  let chartData = [];
+  if (studentRecord && role === 'STUDENT') {
+    const myResults = await Result.find({ student_id: studentRecord._id })
+      .sort({ created_at: -1 })
+      .limit(5)
+      .populate('test_id')
+      .lean();
+      
+    myResults.reverse(); // chronological order
+    
+    chartData = await Promise.all(myResults.map(async (r) => {
+      const allTestResults = await Result.find({ test_id: r.test_id?._id }).select('score').lean();
+      const avg = allTestResults.length > 0 
+        ? allTestResults.reduce((sum, tr) => sum + tr.score, 0) / allTestResults.length 
+        : 0;
+        
+      return {
+        name: r.test_id?.test_name || r.test_id?.name || 'Test',
+        score: r.score,
+        avg: Math.round(avg)
+      };
+    }));
+  }
+
   const avgScore = studentRecord ? (studentRecord.lastTest || 0) : 0;
 
   return res.json({
@@ -112,12 +146,7 @@ const getDashboardStats = async (req, res) => {
       { name: 'Upcoming Tests', value: upcomingTests.length, color: 'text-blue-500', bg: 'bg-blue-100' },
       { name: 'Average Score', value: avgScore, color: 'text-indigo-500', bg: 'bg-indigo-100' }
     ],
-    chartData: [
-      { name: 'Week 1', score: 60, avg: 55 },
-      { name: 'Week 2', score: 70, avg: 65 },
-      { name: 'Week 3', score: 75, avg: 70 },
-      { name: 'Week 4', score: 80, avg: 74 }
-    ],
+    chartData,
     upcomingEvents: upcomingTests.map((t) => ({ id: t._id, name: t.test_name, time: new Date(t.date).toLocaleDateString(), tags: t.subject || 'Test' })),
     enrolledCourses,
     enrolledBatches
