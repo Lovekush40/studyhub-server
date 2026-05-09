@@ -30,6 +30,11 @@ export const createReview = async (req, res, next) => {
   try {
     const { rating, comment } = req.body;
 
+    const existingReview = await Review.findOne({ student: req.user._id });
+    if (existingReview) {
+      throw new ApiError(400, 'You have already submitted a review.');
+    }
+
     const review = await Review.create({
       student: req.user._id,
       rating,
