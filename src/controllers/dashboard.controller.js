@@ -54,30 +54,19 @@ const getDashboardStats = async (req, res) => {
     
     studentRecord = await Student.findOne(
       studentQuery.length ? { $or: studentQuery } : {}
-    ).lean();
+    ).populate('enrolled_courses').lean();
     
     if (studentRecord) {
-      const mappings = await StudentBatch.find({ student_id: studentRecord._id })
-        .populate({
-          path: 'batch_id',
-          populate: { path: 'courseId', model: 'Course' }
-        })
-        .lean();
-
-      enrolledBatches = mappings.map(m => ({
-        id: m.batch_id?._id,
-        name: m.batch_id?.name || m.batch_id?.batch_name,
-        start_date: m.batch_id?.start_date,
-        course: m.batch_id?.courseId ? (m.batch_id.courseId.name || m.batch_id.courseId.course_name) : undefined
-      })).filter(b => b.id);
-
-      enrolledCourses = Array.from(new Map(mappings
-        .filter(m => m.batch_id?.courseId)
-        .map(m => [m.batch_id.courseId._id.toString(), {
-          id: m.batch_id.courseId._id,
-          name: m.batch_id.courseId.name || m.batch_id.courseId.course_name,
-          description: m.batch_id.courseId.description
-        }])).values());
+      if (studentRecord.enrolled_courses && studentRecord.enrolled_courses.length > 0) {
+        enrolledCourses = studentRecord.enrolled_courses
+          .filter(course => course)
+          .map(course => ({
+            id: course._id,
+            name: course.name || course.course_name,
+            description: course.description
+          }));
+      }
+      enrolledBatches = [];
     }
   } else if (role === 'TEACHER') {
     const teacherBatches = await Batch.find({ teacher_id: req.user._id }).populate('courseId').lean();
@@ -98,13 +87,21 @@ const getDashboardStats = async (req, res) => {
   }
 
   const myBatchIds = enrolledBatches.map((b) => b.id);
+  const myCourseIds = enrolledCourses.map((c) => c.id);
+  const testQueryOr = [
+    { batch_id: { $in: myBatchIds } }, 
+    { batchId: { $in: myBatchIds } },
+    { course_id: { $in: myCourseIds } },
+    { courseId: { $in: myCourseIds } }
+  ];
+
   const upcomingTests = await Test.find({
-    $or: [{ batch_id: { $in: myBatchIds } }, { batchId: { $in: myBatchIds } }],
+    $or: testQueryOr,
     date: { $gte: new Date() }
   }).sort({ date: 1 }).limit(4).lean();
 
   const allTestsCount = await Test.countDocuments({
-    $or: [{ batch_id: { $in: myBatchIds } }, { batchId: { $in: myBatchIds } }]
+    $or: testQueryOr
   });
 
   const avgScore = studentRecord ? (studentRecord.lastTest || 0) : 0;
