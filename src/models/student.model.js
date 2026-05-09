@@ -20,6 +20,9 @@ const studentSchema = new mongoose.Schema({
   }]
 }, { timestamps: true });
 
+studentSchema.index({ user_id: 1 });
+studentSchema.index({ email: 1 });
+
 studentSchema.virtual('id').get(function () {
   return this._id.toHexString();
 });

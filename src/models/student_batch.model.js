@@ -5,6 +5,8 @@ const studentBatchSchema = new mongoose.Schema({
   batch_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Batch', required: true }
 }, { timestamps: true });
 
+studentBatchSchema.index({ student_id: 1 });
+
 studentBatchSchema.virtual('id').get(function () {
   return this._id.toHexString();
 });

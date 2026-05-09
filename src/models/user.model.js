@@ -10,6 +10,8 @@ const userSchema = new mongoose.Schema({
   created_at: { type: Date, default: Date.now }
 }, { timestamps: true });
 
+userSchema.index({ created_at: 1 });
+
 userSchema.methods.generateAccessToken = function () {
   return jwt.sign(
     {

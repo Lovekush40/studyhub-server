@@ -9,6 +9,8 @@ const courseSchema = new mongoose.Schema({
   duration: { type: Number, default: 0, min: 0 }
 }, { timestamps: true });
 
+courseSchema.index({ createdAt: -1 });
+
 courseSchema.virtual('id').get(function () {
   return this._id.toHexString();
 });

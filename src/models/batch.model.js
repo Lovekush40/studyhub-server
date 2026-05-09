@@ -15,6 +15,10 @@ const batchSchema = new mongoose.Schema({
   strength: { type: Number, default: 0, min: 0 }
 }, { timestamps: true });
 
+batchSchema.index({ teacher_id: 1 });
+batchSchema.index({ course_id: 1 });
+batchSchema.index({ start_date: 1 });
+
 batchSchema.virtual('id').get(function () {
   return this._id.toHexString();
 });
