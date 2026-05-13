@@ -11,24 +11,8 @@ const getTests = asyncHandler(async (req, res) => {
 
   if (role === 'ADMIN') {
     const tests = await Test.find().populate('courseId', 'name course_name');
-    const transformedAll = tests.map((test) => {
-      const now = new Date();
-      const startTime = new Date(test.date);
-      const endTime = new Date(startTime.getTime() + (test.duration * 60000));
-      
-      let status = 'Upcoming';
-      if (now >= startTime && now <= endTime) status = 'Ongoing';
-      else if (now > endTime) status = 'Completed';
-
-      return { 
-        ...test.toObject(), 
-        status,
-        endDate: endTime,
-        is_active: status === 'Ongoing',
-        can_start: status === 'Ongoing'
-      };
-    });
-    return sendSuccess(res, transformedAll);
+    // Return raw data, let frontend handle status calculation to avoid timezone issues
+    return sendSuccess(res, tests.map(test => test.toObject()));
   }
 
   let courseIds = [];
@@ -51,25 +35,8 @@ const getTests = asyncHandler(async (req, res) => {
   const query = role === 'ADMIN' ? {} : { $or: [{ course_id: { $in: courseIds } }, { courseId: { $in: courseIds } }] };
   const tests = await Test.find(query).populate('courseId', 'name course_name');
   
-  const transformed = tests.map((test) => {
-    const now = new Date();
-    const startTime = new Date(test.date);
-    const endTime = new Date(startTime.getTime() + (test.duration * 60000));
-    
-    let status = 'Upcoming';
-    if (now >= startTime && now <= endTime) status = 'Ongoing';
-    else if (now > endTime) status = 'Completed';
-
-    return { 
-      ...test.toObject(), 
-      status,
-      endDate: endTime,
-      is_active: status === 'Ongoing',
-      can_start: status === 'Ongoing'
-    };
-  });
-
-  return sendSuccess(res, transformed);
+  // Return raw data, let frontend handle status calculation to avoid timezone issues
+  return sendSuccess(res, tests.map(test => test.toObject()));
 });
 
 const getTest = asyncHandler(async (req, res) => {
@@ -102,21 +69,8 @@ const getTest = asyncHandler(async (req, res) => {
     }
   }
 
-  const now = new Date();
-  const startTime = new Date(test.date);
-  const endTime = new Date(startTime.getTime() + (test.duration * 60000));
-  
-  let status = 'Upcoming';
-  if (now >= startTime && now <= endTime) status = 'Ongoing';
-  else if (now > endTime) status = 'Completed';
-
-  return sendSuccess(res, { 
-    ...test.toObject(), 
-    status,
-    endDate: endTime,
-    is_active: status === 'Ongoing',
-    can_start: status === 'Ongoing'
-  });
+  // Return raw data, let frontend handle status calculation to avoid timezone issues
+  return sendSuccess(res, test.toObject());
 });
 
 const createTest = asyncHandler(async (req, res) => {
@@ -128,10 +82,18 @@ const createTest = asyncHandler(async (req, res) => {
     throw new ApiError(400, 'Missing required fields');
   }
 
+  // Parse datetime-local as local time and convert to UTC
+  // datetime-local sends "2026-05-14T16:00" without timezone info
+  // We need to treat this as local time and store UTC equivalent
+  const dateObj = new Date(date);
+  // Adjust for timezone offset: subtract the offset to get true UTC time
+  const offset = dateObj.getTimezoneOffset() * 60000; // convert to milliseconds
+  const utcDate = new Date(dateObj.getTime() + offset);
+
   const testData = {
     test_name: testNameValue,
     name: testNameValue,
-    date: new Date(date),
+    date: utcDate, // Store as UTC
     total_marks: Number(total_marks),
     totalMarks: Number(total_marks),
     duration: Number(duration),
@@ -156,6 +118,13 @@ const updateTest = asyncHandler(async (req, res) => {
   const testNameValue = req.body.test_name || req.body.name;
   const courseValue = req.body.courseId || req.body.course_id;
 
+  let dateValue = undefined;
+  if (req.body.date) {
+    const dateObj = new Date(req.body.date);
+    const offset = dateObj.getTimezoneOffset() * 60000;
+    dateValue = new Date(dateObj.getTime() + offset);
+  }
+
   const updatePayload = {
     ...req.body,
     test_name: testNameValue || undefined,
@@ -163,7 +132,7 @@ const updateTest = asyncHandler(async (req, res) => {
     totalMarks: req.body.total_marks !== undefined ? Number(req.body.total_marks) : req.body.totalMarks,
     total_marks: req.body.total_marks !== undefined ? Number(req.body.total_marks) : req.body.totalMarks,
     duration: req.body.duration !== undefined ? Number(req.body.duration) : undefined,
-    date: req.body.date ? new Date(req.body.date) : undefined
+    date: dateValue
   };
 
   if (courseValue) {
