@@ -2,7 +2,6 @@ import mongoose from 'mongoose';
 import Test from '../models/test.model.js';
 import Student from '../models/student.model.js';
 import Batch from '../models/batch.model.js';
-import StudentBatch from '../models/student_batch.model.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { ApiError } from '../utils/apiError.js';
 import { sendSuccess, sendCreated } from '../utils/apiResponse.js';
@@ -11,7 +10,7 @@ const getTests = asyncHandler(async (req, res) => {
   const role = req.user?.role || 'STUDENT';
 
   if (role === 'ADMIN') {
-    const tests = await Test.find().populate('courseId batchId', 'name course_name');
+    const tests = await Test.find().populate('courseId', 'name course_name');
     const transformedAll = tests.map((test) => {
       const now = new Date();
       const startTime = new Date(test.date);
@@ -32,21 +31,25 @@ const getTests = asyncHandler(async (req, res) => {
     return sendSuccess(res, transformedAll);
   }
 
-  let batchIds = [];
+  let courseIds = [];
 
   if (role === 'TEACHER') {
-    const teacherBatches = await Batch.find({ teacher_id: req.user._id }).select('_id').lean();
-    batchIds = teacherBatches.map((b) => b._id);
+    const teacherBatches = await Batch.find({ teacher_id: req.user._id }).select('course_id courseId').lean();
+    courseIds = [...new Set(teacherBatches.map((b) => (b.course_id || b.courseId)).filter(Boolean))];
   } else if (role === 'STUDENT') {
-    const student = await Student.findOne({ user_id: req.user._id }).lean();
+    const student = await Student.findOne({ user_id: req.user._id }).populate('enrolled_courses').lean();
     if (student) {
-      const studentBatches = await StudentBatch.find({ student_id: student._id }).lean();
-      batchIds = studentBatches.map(sb => sb.batch_id);
+      if (student.enrolled_courses && Array.isArray(student.enrolled_courses)) {
+        student.enrolled_courses.forEach((course) => {
+          if (course && course._id) courseIds.push(course._id);
+        });
+      }
+      if (student.course_id) courseIds.push(student.course_id);
     }
   }
 
-  const query = role === 'ADMIN' ? {} : { $or: [{ batch_id: { $in: batchIds } }, { batchId: { $in: batchIds } }] };
-  const tests = await Test.find(query).populate('courseId batchId', 'name course_name');
+  const query = role === 'ADMIN' ? {} : { $or: [{ course_id: { $in: courseIds } }, { courseId: { $in: courseIds } }] };
+  const tests = await Test.find(query).populate('courseId', 'name course_name');
   
   const transformed = tests.map((test) => {
     const now = new Date();
@@ -71,20 +74,32 @@ const getTests = asyncHandler(async (req, res) => {
 
 const getTest = asyncHandler(async (req, res) => {
   const role = req.user?.role || 'STUDENT';
-  const test = await Test.findById(req.params.id).populate('courseId batchId', 'title name');
+  const test = await Test.findById(req.params.id).populate('courseId', 'title name');
   if (!test) throw new ApiError(404, 'Test not found');
 
-  // Access control for students
   if (role === 'STUDENT') {
-    const student = await Student.findOne({ user_id: req.user._id }).lean();
+    const student = await Student.findOne({ user_id: req.user._id }).populate('enrolled_courses').lean();
     if (!student) throw new ApiError(403, 'Access denied: Profile not found');
 
-    const hasAccess = await StudentBatch.findOne({ 
-      student_id: student._id,
-      batch_id: test.batch_id || test.batchId
-    });
+    const studentCourseIds = new Set();
+    if (student.enrolled_courses && Array.isArray(student.enrolled_courses)) {
+      student.enrolled_courses.forEach((course) => {
+        if (course && course._id) studentCourseIds.add(String(course._id));
+      });
+    }
+    if (student.course_id) studentCourseIds.add(String(student.course_id));
 
-    if (!hasAccess) throw new ApiError(403, 'Access denied: Not enrolled in this test\'s batch');
+    const testCourseId = String(test.course_id || test.courseId);
+    if (!studentCourseIds.has(testCourseId)) {
+      throw new ApiError(403, 'Access denied: Not enrolled in this test\'s course');
+    }
+  } else if (role === 'TEACHER') {
+    const teacherBatches = await Batch.find({ teacher_id: req.user._id }).select('course_id courseId').lean();
+    const teacherCourseIds = new Set(teacherBatches.map((b) => String(b.course_id || b.courseId)).filter(Boolean));
+    const testCourseId = String(test.course_id || test.courseId);
+    if (!teacherCourseIds.has(testCourseId)) {
+      throw new ApiError(403, 'Access denied: You do not teach this test\'s course');
+    }
   }
 
   const now = new Date();
@@ -105,12 +120,11 @@ const getTest = asyncHandler(async (req, res) => {
 });
 
 const createTest = asyncHandler(async (req, res) => {
-  const { test_name, name, courseId, course_id, batchId, batch_id, date, total_marks, duration, created_by, subject, form_url } = req.body;
+  const { test_name, name, courseId, course_id, date, total_marks, duration, created_by, subject, form_url } = req.body;
   const testNameValue = test_name || name;
   const courseValue = courseId || course_id;
-  const batchValue = batchId || batch_id;
 
-  if (!testNameValue || !courseValue || !batchValue || !date || total_marks === undefined || duration === undefined) {
+  if (!testNameValue || !courseValue || !date || total_marks === undefined || duration === undefined) {
     throw new ApiError(400, 'Missing required fields');
   }
 
@@ -126,19 +140,11 @@ const createTest = asyncHandler(async (req, res) => {
     created_by: created_by ? (mongoose.Types.ObjectId.isValid(created_by) ? created_by : undefined) : undefined
   };
 
-  // Convert course and batch IDs to ObjectIds if valid
   if (mongoose.Types.ObjectId.isValid(courseValue)) {
     testData.course_id = courseValue;
     testData.courseId = courseValue;
   } else {
     throw new ApiError(400, 'Invalid course ID');
-  }
-
-  if (mongoose.Types.ObjectId.isValid(batchValue)) {
-    testData.batch_id = batchValue;
-    testData.batchId = batchValue;
-  } else {
-    throw new ApiError(400, 'Invalid batch ID');
   }
 
   const newTest = await Test.create(testData);
@@ -149,7 +155,6 @@ const createTest = asyncHandler(async (req, res) => {
 const updateTest = asyncHandler(async (req, res) => {
   const testNameValue = req.body.test_name || req.body.name;
   const courseValue = req.body.courseId || req.body.course_id;
-  const batchValue = req.body.batchId || req.body.batch_id;
 
   const updatePayload = {
     ...req.body,
@@ -161,22 +166,12 @@ const updateTest = asyncHandler(async (req, res) => {
     date: req.body.date ? new Date(req.body.date) : undefined
   };
 
-  // Only update ObjectId fields if they are valid
   if (courseValue) {
     if (mongoose.Types.ObjectId.isValid(courseValue)) {
       updatePayload.course_id = courseValue;
       updatePayload.courseId = courseValue;
     } else {
       throw new ApiError(400, 'Invalid course ID');
-    }
-  }
-
-  if (batchValue) {
-    if (mongoose.Types.ObjectId.isValid(batchValue)) {
-      updatePayload.batch_id = batchValue;
-      updatePayload.batchId = batchValue;
-    } else {
-      throw new ApiError(400, 'Invalid batch ID');
     }
   }
 
