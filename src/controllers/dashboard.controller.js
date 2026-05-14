@@ -10,9 +10,8 @@ const getDashboardStats = async (req, res) => {
   const role = req.user?.role || 'STUDENT';
 
   if (role === 'ADMIN') {
-    const [totalStudents, activeBatches, totalCourses, testsConducted] = await Promise.all([
+    const [totalStudents, totalCourses, testsConducted] = await Promise.all([
       Student.countDocuments(),
-      Batch.countDocuments(),
       Course.countDocuments(),
       Test.countDocuments()
     ]);
@@ -32,21 +31,19 @@ const getDashboardStats = async (req, res) => {
       chartData.push({ name: monthName, students: count || 0 });
     }
 
-    const upcomingEvents = await Batch.find({ start_date: { $gte: new Date() } })
-      .sort({ start_date: 1 })
+    const upcomingEvents = await Test.find({ date: { $gte: new Date() } })
+      .sort({ date: 1 })
       .limit(4)
-      .select('name start_date')
       .lean();
 
     return res.json({
       kpis: [
         { name: 'Total Students', value: totalStudents, color: 'text-green-500', bg: 'bg-green-100' },
-        { name: 'Active Batches', value: activeBatches, color: 'text-blue-500', bg: 'bg-blue-100' },
         { name: 'Total Courses', value: totalCourses, color: 'text-indigo-500', bg: 'bg-indigo-100' },
         { name: 'Tests Conducted', value: testsConducted, color: 'text-purple-500', bg: 'bg-purple-100' }
       ],
       chartData,
-      upcomingEvents: upcomingEvents.map((b) => ({ id: b._id, name: b.name, time: b.start_date.toLocaleDateString(), tags: 'Batch Start' })),
+      upcomingEvents: upcomingEvents.map((t) => ({ id: t._id, name: t.test_name || t.name, time: new Date(t.date).toLocaleDateString(), tags: t.subject || 'Assessment' })),
       enrolledCourses: [],
       enrolledBatches: []
     });
@@ -79,40 +76,28 @@ const getDashboardStats = async (req, res) => {
       enrolledBatches = [];
     }
   } else if (role === 'TEACHER') {
-    const teacherBatches = await Batch.find({ teacher_id: req.user._id }).populate('courseId').lean();
-    enrolledBatches = teacherBatches.map(b => ({
-      id: b._id,
-      name: b.name || b.batch_name,
-      start_date: b.start_date,
-      course: b.courseId ? (b.courseId.name || b.courseId.course_name) : undefined
-    }));
-
-    enrolledCourses = Array.from(new Map(teacherBatches
-      .filter(b => b.courseId)
-      .map(b => [b.courseId._id.toString(), {
-        id: b.courseId._id,
-        name: b.courseId.name || b.courseId.course_name,
-        description: b.courseId.description
-      }])).values());
+    enrolledCourses = [];
   }
 
-  const myBatchIds = enrolledBatches.map((b) => b.id);
   const myCourseIds = enrolledCourses.map((c) => c.id);
-  const testQueryOr = [
-    { batch_id: { $in: myBatchIds } }, 
-    { batchId: { $in: myBatchIds } },
+  const testQueryOr = myCourseIds.length > 0 ? [
     { course_id: { $in: myCourseIds } },
     { courseId: { $in: myCourseIds } }
-  ];
+  ] : [];
 
-  const upcomingTests = await Test.find({
-    $or: testQueryOr,
-    date: { $gte: new Date() }
-  }).sort({ date: 1 }).limit(4).lean();
+  let upcomingTests = [];
+  let allTestsCount = 0;
 
-  const allTestsCount = await Test.countDocuments({
-    $or: testQueryOr
-  });
+  if (testQueryOr.length > 0) {
+    upcomingTests = await Test.find({
+      $or: testQueryOr,
+      date: { $gte: new Date() }
+    }).sort({ date: 1 }).limit(4).lean();
+
+    allTestsCount = await Test.countDocuments({
+      $or: testQueryOr
+    });
+  }
 
   let chartData = [];
   if (studentRecord && role === 'STUDENT') {
