@@ -82,18 +82,12 @@ const createTest = asyncHandler(async (req, res) => {
     throw new ApiError(400, 'Missing required fields');
   }
 
-  // Parse datetime-local as local time and convert to UTC
-  // datetime-local sends "2026-05-14T16:00" without timezone info
-  // We need to treat this as local time and store UTC equivalent
   const dateObj = new Date(date);
-  // Adjust for timezone offset: subtract the offset to get true UTC time
-  const offset = dateObj.getTimezoneOffset() * 60000; // convert to milliseconds
-  const utcDate = new Date(dateObj.getTime() + offset);
 
   const testData = {
     test_name: testNameValue,
     name: testNameValue,
-    date: utcDate, // Store as UTC
+    date: dateObj,
     total_marks: Number(total_marks),
     totalMarks: Number(total_marks),
     duration: Number(duration),
@@ -120,9 +114,7 @@ const updateTest = asyncHandler(async (req, res) => {
 
   let dateValue = undefined;
   if (req.body.date) {
-    const dateObj = new Date(req.body.date);
-    const offset = dateObj.getTimezoneOffset() * 60000;
-    dateValue = new Date(dateObj.getTime() + offset);
+    dateValue = new Date(req.body.date);
   }
 
   const updatePayload = {
